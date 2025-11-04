@@ -1,4 +1,4 @@
-// backend/server.js
+// server.js
 import express from "express";
 import cors from "cors";
 
@@ -110,7 +110,17 @@ app.put("/devices/:id", (req, res) => {
 });
 
 /* ========================
-   🚀 Jalankan server
+   🚀 Export untuk Vercel
    ======================== */
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`✅ Server API berjalan di http://localhost:${PORT}`));
+export default app;
+
+/* ========================
+   🚀 Jalankan server lokal
+   ======================== */
+// Hanya jalankan server lokal jika tidak di Vercel
+if (process.env.VERCEL !== "1") {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`✅ Server API berjalan di http://localhost:${PORT}`);
+  });
+}
