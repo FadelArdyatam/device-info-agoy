@@ -1,6 +1,12 @@
 // server.js
 import express from "express";
 import cors from "cors";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 app.use(cors());
@@ -11,6 +17,50 @@ app.use(express.json());
    (disimpan di memori sementara)
    ======================== */
 let devices = [];
+
+/* ========================
+   ✅ GET /
+   Serve index.html
+   ======================== */
+app.get("/", (req, res) => {
+  try {
+    let html;
+    const paths = [
+      join(__dirname, "index.html"),
+      join(process.cwd(), "index.html"),
+      "./index.html"
+    ];
+    
+    let found = false;
+    for (const htmlPath of paths) {
+      try {
+        html = readFileSync(htmlPath, "utf-8");
+        found = true;
+        break;
+      } catch (e) {
+        continue;
+      }
+    }
+    
+    if (!found) {
+      return res.status(404).json({ 
+        success: false, 
+        error: "File index.html tidak ditemukan",
+        message: "API berjalan. Akses /devices untuk melihat endpoint API"
+      });
+    }
+    
+    res.setHeader("Content-Type", "text/html");
+    res.send(html);
+  } catch (error) {
+    console.error("Error serving index.html:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: "Gagal memuat halaman",
+      message: error.message 
+    });
+  }
+});
 
 /* ========================
    ✅ GET /devices
@@ -117,7 +167,6 @@ export default app;
 /* ========================
    🚀 Jalankan server lokal
    ======================== */
-// Hanya jalankan server lokal jika tidak di Vercel
 if (process.env.VERCEL !== "1") {
   const PORT = process.env.PORT || 3000;
   app.listen(PORT, () => {

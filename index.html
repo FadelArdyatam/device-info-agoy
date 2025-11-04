@@ -16,6 +16,8 @@
     th { background: #1976d2; color: white; }
     .btn-del { background: #e53935; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; }
     .btn-del:hover { background: #b71c1c; }
+    .btn-edit { background: #ff9800; color: white; border: none; padding: 6px 12px; border-radius: 5px; cursor: pointer; margin-right: 5px; }
+    .btn-edit:hover { background: #f57c00; }
   </style>
 </head>
 <body>
@@ -48,59 +50,156 @@
   </table>
 
   <script>
-    const API_URL = "http://localhost:3000/devices";
+    // Deteksi API URL secara otomatis (local atau production)
+    const API_BASE = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+      ? 'http://localhost:3000'
+      : window.location.origin;
+    const API_URL = `${API_BASE}/devices`;
+
     const form = document.getElementById("deviceForm");
     const tableBody = document.querySelector("#deviceTable tbody");
 
+    // Load semua devices saat halaman dimuat
     async function loadDevices() {
-      const res = await fetch(API_URL);
-      const result = await res.json();
-      renderTable(result.data || []);
+      try {
+        const res = await fetch(API_URL);
+        if (!res.ok) {
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+        const result = await res.json();
+        if (result.success) {
+          renderTable(result.data || []);
+        } else {
+          console.error('Error loading devices:', result.error);
+          alert('Gagal memuat data: ' + (result.error || 'Unknown error'));
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Tidak dapat terhubung ke server. Pastikan server berjalan di ' + API_BASE);
+        renderTable([]);
+      }
     }
 
+    // Tambah device baru
     async function addDevice(deviceId, deviceName) {
-      const res = await fetch(API_URL, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ deviceId, deviceName }),
-      });
+      try {
+        const res = await fetch(API_URL, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deviceId, deviceName }),
+        });
 
-      const result = await res.json();
-      alert(result.message || (result.error || "Terjadi kesalahan"));
-
-      if (res.ok) loadDevices();
+        const result = await res.json();
+        
+        if (res.ok && result.success) {
+          alert(result.message || "Device berhasil ditambahkan");
+          await loadDevices();
+        } else {
+          alert(result.error || "Gagal menambahkan device");
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan: ' + error.message);
+      }
     }
 
+    // Hapus device
     async function deleteDevice(id) {
-      if (!confirm("Hapus device ini?")) return;
-      const res = await fetch(`${API_URL}/${id}`, { method: "DELETE" });
-      const result = await res.json();
-      alert(result.message || result.error);
-      if (res.ok) loadDevices();
+      if (!confirm("Yakin ingin menghapus device ini?")) return;
+      
+      try {
+        const res = await fetch(`${API_URL}/${id}`, { 
+          method: "DELETE" 
+        });
+        
+        const result = await res.json();
+        
+        if (res.ok && result.success) {
+          alert(result.message || "Device berhasil dihapus");
+          await loadDevices();
+        } else {
+          alert(result.error || "Gagal menghapus device");
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan: ' + error.message);
+      }
     }
 
+    // Update device name
+    async function updateDevice(id) {
+      const newName = prompt("Masukkan nama device baru (sound box pocket atau sound box premium):");
+      if (!newName) return;
+
+      const validNames = ["sound box pocket", "sound box premium"];
+      if (!validNames.includes(newName)) {
+        alert("Nama device tidak valid! Harus 'sound box pocket' atau 'sound box premium'");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_URL}/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deviceName: newName }),
+        });
+
+        const result = await res.json();
+        
+        if (res.ok && result.success) {
+          alert(result.message || "Device berhasil diperbarui");
+          await loadDevices();
+        } else {
+          alert(result.error || "Gagal memperbarui device");
+        }
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Terjadi kesalahan: ' + error.message);
+      }
+    }
+
+    // Render table dengan data devices
     function renderTable(devices) {
       tableBody.innerHTML = "";
+      
+      if (devices.length === 0) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td colspan="4" style="text-align: center; padding: 20px; color: #999;">Belum ada device yang terdaftar</td>`;
+        tableBody.appendChild(tr);
+        return;
+      }
+
       devices.forEach((d, i) => {
         const tr = document.createElement("tr");
         tr.innerHTML = `
           <td>${i + 1}</td>
           <td>${d.deviceId}</td>
           <td>${d.deviceName}</td>
-          <td><button class="btn-del" onclick="deleteDevice('${d.deviceId}')">Hapus</button></td>
+          <td>
+            <button class="btn-edit" onclick="updateDevice('${d.deviceId}')">Edit</button>
+            <button class="btn-del" onclick="deleteDevice('${d.deviceId}')">Hapus</button>
+          </td>
         `;
         tableBody.appendChild(tr);
       });
     }
 
+    // Handle form submission
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
       const deviceId = document.getElementById("deviceId").value.trim();
       const deviceName = document.getElementById("deviceName").value;
+      
+      if (!deviceId || !deviceName) {
+        alert("Harap lengkapi semua field!");
+        return;
+      }
+
       await addDevice(deviceId, deviceName);
       form.reset();
     });
 
+    // Load devices saat halaman dimuat
     loadDevices();
   </script>
 </body>
